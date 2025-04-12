@@ -11,8 +11,14 @@ try {
   }
 }
 
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+const repoName = 'snake-chase';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: isGitHubPages ? `/${repoName}` : '',
+  assetPrefix: isGitHubPages ? `/${repoName}/` : '',
+  output: 'export',
   eslint: {
     ignoreDuringBuilds: true,
   },
