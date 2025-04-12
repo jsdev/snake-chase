@@ -1,0 +1,130 @@
+/*!***********************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[10].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[10].use[3]!./app/theme.css ***!
+  \***********************************************************************************************************************************************************************************************************************************************************/
+:root {
+    /* Light theme variables */
+    --light-background: #f5f5f5;
+    --light-text: #1a1a1a;
+    --light-primary: #3b82f6;
+    --light-secondary: #10b981;
+    --light-accent: #f59e0b;
+    --light-danger: #ef4444;
+    --light-border: #d1d5db;
+    --light-grid-bg: #ffffff;
+    --light-grid-lines: #e5e7eb;
+  
+    /* Dark theme variables */
+    --dark-background: #121212;
+    --dark-text: #f5f5f5;
+    --dark-primary: #3b82f6;
+    --dark-secondary: #10b981;
+    --dark-accent: #f59e0b;
+    --dark-danger: #ef4444;
+    --dark-border: #374151;
+    --dark-grid-bg: #1f2937;
+    --dark-grid-lines: #374151;
+  
+    /* Default to dark theme */
+    --background: var(--dark-background);
+    --text: var(--dark-text);
+    --primary: var(--dark-primary);
+    --secondary: var(--dark-secondary);
+    --accent: var(--dark-accent);
+    --danger: var(--dark-danger);
+    --border: var(--dark-border);
+    --grid-bg: var(--dark-grid-bg);
+    --grid-lines: var(--dark-grid-lines);
+  }
+  
+  .light-theme {
+    --background: var(--light-background);
+    --text: var(--light-text);
+    --primary: var(--light-primary);
+    --secondary: var(--light-secondary);
+    --accent: var(--light-accent);
+    --danger: var(--light-danger);
+    --border: var(--light-border);
+    --grid-bg: var(--light-grid-bg);
+    --grid-lines: var(--light-grid-lines);
+  }
+  
+  .dark-theme {
+    --background: var(--dark-background);
+    --text: var(--dark-text);
+    --primary: var(--dark-primary);
+    --secondary: var(--dark-secondary);
+    --accent: var(--dark-accent);
+    --danger: var(--dark-danger);
+    --border: var(--dark-border);
+    --grid-bg: var(--dark-grid-bg);
+    --grid-lines: var(--dark-grid-lines);
+  }
+  
+  /* Apply theme to dialog components */
+  .dialog-content {
+    background-color: var(--background) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  
+  .dialog-overlay {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+  }
+  
+  /* Apply theme to select components */
+  .select-content {
+    background-color: var(--background) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  
+  .select-item {
+    color: var(--text) !important;
+  }
+  
+  .select-item:hover {
+    background-color: var(--primary) !important;
+    color: white !important;
+  }
+  
+  /* Apply theme to buttons */
+  button {
+    border-color: var(--border) !important;
+  }
+  
+  /* Apply theme to inputs */
+  input,
+  select {
+    background-color: var(--grid-bg) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  
+  /* Fix Switch component styling */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+  }
+  
+  [data-state="checked"] {
+    background-color: var(--primary) !important;
+  }
+  
+  [data-state="unchecked"] {
+    background-color: var(--border) !important;
+  }
+  
+  [role="switch"] {
+    background-color: var(--border) !important;
+  }
+  
+  [role="switch"][data-state="checked"] {
+    background-color: var(--primary) !important;
+  }
+  
+  [role="switch"] span {
+    background-color: white !important;
+  }
+  

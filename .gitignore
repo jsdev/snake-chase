@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+/.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+/out/
+
+# Vercel/Netlify build output
+.vercel/
+.netlify/
+
+# Mac-specific system files
+.DS_Store
+*.DS_Store
+
+# Editor-specific files
+*.swp
+*.idea/
+*.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Production files
+*.log
