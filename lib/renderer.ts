@@ -99,46 +99,82 @@ export class GameRenderer {
     }, 100) // Short delay to ensure smooth transition
   }
 
-  // Start death animation
+  private snake1DeathStartTime: number = 0;
+  private snake2DeathStartTime: number = 0;
+  private readonly DEATH_ANIMATION_DURATION = 500; // ms, Example duration, adjust as needed
+  
   startDeathAnimation(segments: GameState["snake"], isSnake2 = false) {
-    // Cancel any existing animation
-    if (this.animationFrame !== null) {
-      cancelAnimationFrame(this.animationFrame)
-    }
-
-    // Store the dying snake segments
-    this.dyingSnake = {
-      segments: [...segments], // Make a copy of the segments
-      progress: 0,
-      isSnake2,
-    }
-
-    logDebugEvent("Death animation started", { isSnake2, segmentCount: segments.length })
-
-    // Start the animation
-    this.animateSnakeDeath()
+      // Cancel any existing animation frame loop
+      if (this.animationFrame !== null) {
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null; // Clear the ID
+      }
+  
+      logDebugEvent(`Renderer received startDeathAnimation call for snake ${isSnake2 ? 2 : 1}`);
+      if (!segments || segments.length === 0) {
+          logDebugEvent("Skipping death animation: No segments provided.", {}, "warn");
+          // Ensure dyingSnake is null if we skip
+          if (this.dyingSnake?.isSnake2 === isSnake2) {
+              this.dyingSnake = null;
+          }
+          return;
+      }
+  
+      const startTime = performance.now(); // Get current time
+  
+      // Store the dying snake segments and reset progress
+      this.dyingSnake = {
+        segments: [...segments], // Make a copy
+        progress: 0,
+        isSnake2,
+      };
+  
+      // Store the start time for time-based progress calculation
+      if (isSnake2) {
+          this.snake2DeathStartTime = startTime;
+      } else {
+          this.snake1DeathStartTime = startTime;
+      }
+  
+      logDebugEvent("Death animation initiated", { isSnake2, segmentCount: segments.length, startTime });
+  
+      // Start the animation UPDATE loop
+      this.animateSnakeDeath();
   }
 
-  // Animate snake death
-  animateSnakeDeath() {
-    if (!this.dyingSnake || !this.lastState) return
+ // Inside GameRenderer class
 
-    // Increment progress
-    this.dyingSnake.progress += 0.1
-
-    // If animation is complete, remove the dying snake
-    if (this.dyingSnake.progress >= 1) {
-      logDebugEvent("Death animation completed")
-      this.dyingSnake = null
-      return
-    }
-
-    // Render the current state with the dying snake
-    this.render(this.lastState, true)
-
-    // Continue animation
-    this.animationFrame = requestAnimationFrame(() => this.animateSnakeDeath())
+animateSnakeDeath() {
+  // Ensure there is an active animation
+  if (!this.dyingSnake) {
+       // Clear potential lingering frame requests if state was cleared externally
+       if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
+       this.animationFrame = null;
+       return;
   }
+
+  // Calculate time-based progress for smoother animation
+  const now = performance.now();
+  const startTime = this.dyingSnake.isSnake2 ? this.snake2DeathStartTime : this.snake1DeathStartTime;
+  const elapsed = now - startTime;
+  const duration = this.DEATH_ANIMATION_DURATION; // Use the defined duration
+
+  // Update progress (clamped between 0 and 1)
+  this.dyingSnake.progress = Math.min(elapsed / duration, 1);
+
+  // Check if animation is complete
+  if (this.dyingSnake.progress >= 1) {
+    logDebugEvent("Death animation progress >= 1 (Time-based). Clearing dyingSnake.", { isSnake2: this.dyingSnake.isSnake2 });
+    this.dyingSnake = null; // Clear the animation state
+    this.animationFrame = null; // Stop requesting new frames
+    // DO NOT CALL RENDER HERE
+    return; // Exit the animation loop
+  }
+
+  // Request the next frame to continue UPDATING the animation progress
+  // The actual drawing happens in the main 'render' call triggered by the GameEngine
+  this.animationFrame = requestAnimationFrame(() => this.animateSnakeDeath());
+}
 
   render(state: GameState, isAnimationFrame = false) {
     const startTime = performance.now()

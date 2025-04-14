@@ -122,119 +122,133 @@ export class GameRenderer extends RendererBase {
   }
 
   render(state: GameState, isAnimationFrame = false) {
-    const startTime = performance.now()
+    const startTime = performance.now();
 
-    if (!this.offscreenCtx) return
+    if (!this.offscreenCtx) return;
 
-    // Store the state for comparison and animations
-    this.lastState = state
+    // Store the state for comparison and animations (Good practice)
+    this.lastState = state;
 
-    // Throttle regular rendering to prevent flicker (max 60fps)
-    // But don't throttle animation frames
+    // --- Animation Frame Throttling / Timing ---
+    // Your existing logic here for throttling and frame timing is fine
     if (!isAnimationFrame) {
-      const now = performance.now()
-      if (now - this.lastRenderTime < 16) {
-        // ~60fps
-        return
-      }
-
-      // Record frame time
-      if (this.lastRenderTime > 0) {
-        const frameTime = now - this.lastRenderTime
-        recordRenderTime(frameTime)
-        this.frameTimes.push(frameTime)
-        if (this.frameTimes.length > 60) this.frameTimes.shift()
-      }
-
-      this.lastRenderTime = now
+        const now = performance.now();
+        if (now - this.lastRenderTime < 16) { // ~60fps throttle
+             return;
+        }
+        if (this.lastRenderTime > 0) { /* ... record frame time ... */ }
+        this.lastRenderTime = now;
     }
 
-    const theme = this.getTheme()
+    const theme = this.getTheme();
 
-    // Clear offscreen canvas with a single operation
-    this.offscreenCtx.fillStyle = theme.gridBg
-    this.offscreenCtx.fillRect(0, 0, this.width, this.height)
+    // Clear offscreen canvas
+    this.offscreenCtx.fillStyle = theme.gridBg;
+    this.offscreenCtx.fillRect(0, 0, this.width, this.height);
 
     // Draw grid lines
-    this.gridRenderer.drawGrid(this.offscreenCtx, theme.gridLines)
+    this.gridRenderer.drawGrid(this.offscreenCtx, theme.gridLines);
 
     // Draw fruits
-    this.fruitRenderer.drawFruits(this.offscreenCtx, state.fruits)
+    this.fruitRenderer.drawFruits(this.offscreenCtx, state.fruits);
 
-    // Draw snake 1 if not respawning
-    if (state.respawning === 0) {
-      this.snakeRenderer.drawSnake(
-        this.offscreenCtx,
-        state.snake,
-        state.direction,
-        state.snakeColor || "green",
-        state.snakeHeadColor || "#00ff00",
-        this.growingSnake1,
-      )
-    } else {
-      // Draw respawn countdown for snake 1
-      this.uiRenderer.drawRespawnCountdown(
-        this.offscreenCtx,
-        state.respawning,
-        state.snakeColor || "green",
-        this.width,
-        this.height,
-      )
-    }
+    // --- Determine Drawing Flags based on Animation ---
+    let drawNormalSnake1 = true; // Flag to control drawing of non-animating snake 1
+    let drawNormalSnake2 = true; // Flag to control drawing of non-animating snake 2
 
-    // Draw snake 2 if in multiplayer mode and not respawning
-    if (state.isMultiplayer && state.snake2 && state.direction2) {
-      if (state.respawning2 === 0) {
-        this.snakeRenderer.drawSnake(
-          this.offscreenCtx,
-          state.snake2,
-          state.direction2,
-          state.snake2Color || "purple",
-          state.snake2HeadColor || "#8800ff",
-          this.growingSnake2,
-        )
-      } else {
-        // Draw respawn countdown for snake 2
-        this.uiRenderer.drawRespawnCountdown(
-          this.offscreenCtx,
-          state.respawning2,
-          state.snake2Color || "purple",
-          this.width,
-          this.height,
-          true,
-        )
-      }
-    }
-
-    // Draw dying snake if there is one
+    // --- Draw Dying Snake Animation (Highest Priority) ---
     if (this.dyingSnake) {
+      // Use the state colors from the main state object for consistency
+      const dyingColor = this.dyingSnake.isSnake2 ? (state.snake2Color || "purple") : (state.snakeColor || "green");
+      const dyingHeadColor = this.dyingSnake.isSnake2 ? (state.snake2HeadColor || "#8800ff") : (state.snakeHeadColor || "#00ff00");
+
       this.snakeRenderer.drawDyingSnake(
         this.offscreenCtx,
         this.dyingSnake.segments,
         this.dyingSnake.progress,
-        this.dyingSnake.isSnake2 ? "purple" : "green",
-        this.dyingSnake.isSnake2 ? "#8800ff" : "#00ff00",
-      )
+        dyingColor,
+        dyingHeadColor
+      );
+      // Prevent drawing the normal snake/respawn text for the snake that is dying
+      if (this.dyingSnake.isSnake2) {
+        drawNormalSnake2 = false;
+      } else {
+        drawNormalSnake1 = false;
+      }
     }
 
-    // Draw lives
-    this.uiRenderer.drawLives(this.offscreenCtx, state.lives, this.width, state.lives2, state.isMultiplayer)
+    // --- Draw Snake 1 (Alive or Respawning Text) ---
+    // Only draw if not currently animating death
+    if (drawNormalSnake1) {
+      // Check if snake 1 is alive and not respawning
+      if (state.lives > 0 && state.respawning === 0) {
+        this.snakeRenderer.drawSnake(
+          this.offscreenCtx,
+          state.snake,
+          state.direction,
+          state.snakeColor || "green",
+          state.snakeHeadColor || "#00ff00",
+          this.growingSnake1
+        );
+      // Check if snake 1 is currently respawning (draw text)
+      } else if (state.respawning > 0) {
+        this.uiRenderer.drawRespawnCountdown(
+          this.offscreenCtx,
+          state.respawning,
+          state.snakeColor || "green",
+          this.width,
+          this.height
+        );
+      }
+      // Implicitly: If lives <= 0 AND not respawning AND not animating death, draw nothing.
+    }
 
-    // Draw debug info if in debug mode
+    // --- Draw Snake 2 (Alive or Respawning Text) ---
+    // Only draw if multiplayer mode is active AND snake 2 is not animating death
+    if (state.isMultiplayer && drawNormalSnake2) {
+      // Check if snake 2 actually exists in the state
+      if (state.snake2 && state.direction2) {
+        // Check if snake 2 is alive and not respawning
+        if (state.lives2 > 0 && state.respawning2 === 0) {
+          this.snakeRenderer.drawSnake(
+            this.offscreenCtx,
+            state.snake2,
+            state.direction2,
+            state.snake2Color || "purple",
+            state.snake2HeadColor || "#8800ff",
+            this.growingSnake2
+          );
+        // Check if snake 2 is currently respawning (draw text)
+        } else if (state.respawning2 > 0) {
+          this.uiRenderer.drawRespawnCountdown(
+            this.offscreenCtx,
+            state.respawning2,
+            state.snake2Color || "purple",
+            this.width,
+            this.height,
+            true // isSnake2 = true
+          );
+        }
+        // Implicitly: If lives2 <= 0 AND not respawning AND not animating death, draw nothing.
+      }
+    }
+
+    // --- Draw UI Elements ---
+    this.uiRenderer.drawLives(this.offscreenCtx, state.lives, this.width, state.lives2, state.isMultiplayer);
+
+    // Draw debug info if needed
     if (isDebugMode()) {
-      drawDebugInfo(this.offscreenCtx, state, this.width, this.height)
-      drawFrameTiming(this.offscreenCtx, this.width, this.height)
+        drawDebugInfo(this.offscreenCtx, state, this.width, this.height);
+        drawFrameTiming(this.offscreenCtx, this.width, this.height);
     }
 
-    // Copy from offscreen canvas to visible canvas
-    this.swapBuffers()
+    // Copy to visible canvas
+    this.swapBuffers();
 
-    // Record render time
-    const renderTime = performance.now() - startTime
-    recordRenderTime(renderTime)
-
-    // Log occasional frame stats
-    this.frameCount++
+    // --- Record timing / stats ---
+    const renderTime = performance.now() - startTime;
+    recordRenderTime(renderTime);
+    this.frameCount++;   
     if (isDebugMode() && this.frameCount % 60 === 0) {
       logDebugEvent("Frame stats", {
         renderTime,

@@ -255,8 +255,12 @@ export class GameEngine {
       if (this.animationFrameId === null) break;
     }
 
-    if (this.animationFrameId !== null) {
-      this.onGameRender();
+    // --- This is the crucial part ---
+    if (this.animationFrameId !== null) { // Check if loop is still active
+      // RENDER the current state AFTER game steps and animation progress updates
+      this.onGameRender(); // This should call renderer.render(this.getState())
+
+      // Request the next frame for the game loop
       this.animationFrameId = requestAnimationFrame(this.boundGameLoop);
     }
   }
@@ -304,6 +308,10 @@ export class GameEngine {
     const safePosition = this.findSafeRespawnPosition(otherSnakeSegments);
 
     if (isSnake2) {
+      if (this.lives2 <= 0) {
+        logDebugEvent("Snake 2 is out of lives, not respawning");
+        return;
+      }
       if (!this.isMultiplayer) {
         logDebugEvent("Attempted to respawn snake 2 in single player mode", {}, "warn");
         return;
@@ -314,6 +322,10 @@ export class GameEngine {
 
       this.onSnakeRespawn(this.snake2, true);
     } else {
+      if (this.lives <= 0) {
+        logDebugEvent("Snake 1 is out of lives, not respawning");
+        return;
+      }
       this.snake = new Snake(this.gridSize, safePosition, "green", "#00ff00", this.noBoundaries, this.allowCoiling);
       this.respawnCountdown = 0;
       this.respawnTimer = 0;
@@ -327,74 +339,91 @@ export class GameEngine {
   }
 
   startRespawnCountdown(isSnake2 = false) {
+    // Prevent starting if already respawning (important to avoid overlapping animations/logic)
     if ((isSnake2 && this.respawnCountdown2 > 0) || (!isSnake2 && this.respawnCountdown > 0)) {
-      logDebugEvent("Respawn countdown already active", { isSnake2 });
+      logDebugEvent("Respawn countdown already active, skipping new death sequence.", { isSnake2 });
       return;
     }
 
-    logDebugEvent("Starting respawn countdown", { isSnake2 });
+    logDebugEvent("Starting respawn/death sequence", { isSnake2 });
 
-    if (this.renderer) {
-      const snakeInstance = isSnake2 ? this.snake2 : this.snake;
-      if (snakeInstance) {
-        this.renderer.startDeathAnimation(snakeInstance.segments, isSnake2);
-      }
+    const snakeInstance = isSnake2 ? this.snake2 : this.snake;
+    let livesRemaining: number;
+
+    // --- Trigger Animation FIRST ---
+    // Pass the current segments to the renderer.
+    // The renderer must now handle the animation lifecycle internally.
+    if (this.renderer && snakeInstance) {
+         logDebugEvent(`Attempting to start death animation for snake ${isSnake2 ? 2 : 1}`, { segments: snakeInstance.segments?.length ?? 0 });
+         // Pass a copy of segments in case the original array is modified
+         this.renderer.startDeathAnimation([...snakeInstance.segments], isSnake2);
+    } else {
+         logDebugEvent(`Cannot start death animation: Renderer or Snake instance ${isSnake2 ? 2 : 1} is missing/invalid.`, {}, "warn");
     }
 
+    // --- Now handle lives and game state ---
     if (isSnake2) {
-      if (!this.snake2) {
-        logDebugEvent("Attempted respawn countdown for non-existent snake 2", {}, "error");
-        return;
-      }
+      if (!this.snake2) { logDebugEvent("Snake 2 instance missing", {}, "error"); return; }
       this.lives2--;
+      livesRemaining = this.lives2;
       this.onLivesChange(this.lives, this.lives2);
-      logDebugEvent("Snake 2 lost a life", { remainingLives: this.lives2 });
+      logDebugEvent("Snake 2 lost a life", { remainingLives: livesRemaining });
 
-      if ((this.allowCoiling || this.noBoundaries) && this.lives2 <= 0) {
-        this.endGame();
-        return;
+      if (livesRemaining <= 0) {
+        logDebugEvent("Snake 2 is out of lives.");
+        if (this.lives <= 0) {
+           logDebugEvent("Both players are out of lives. Ending game.");
+           // endGame() might stop the game loop needed for rendering frames.
+           // If the renderer animation relies on requestAnimationFrame,
+           // consider a *very* short delay ONLY IF animation gets cut off.
+           // Best if renderer animation is self-contained or uses its own timer.
+           this.endGame();
+        } else {
+           logDebugEvent("Snake 1 still has lives. Game continues. Snake 2 will not respawn.");
+        }
+        // Return AFTER potentially calling endGame
+        return; // Stop: No respawn timer needed
       }
-
+      // If lives > 0, proceed to set up respawn timer...
       this.respawnCountdown2 = RESPAWN_TIME;
-
       if (this.respawnTimer2) clearInterval(this.respawnTimer2);
-
       this.respawnTimer2 = window.setInterval(() => {
         this.respawnCountdown2--;
-        logDebugEvent("Respawn countdown tick (snake 2)", { countdown: this.respawnCountdown2 });
-
         if (this.respawnCountdown2 <= 0) {
           clearInterval(this.respawnTimer2);
           this.respawnTimer2 = 0;
-          this.respawnSnake(true);
+          if (this.lives2 > 0) this.respawnSnake(true); // Check lives again just in case
         }
       }, 1000);
-    } else {
-      if (!this.snake) {
-        logDebugEvent("Attempted respawn countdown for non-existent snake 1", {}, "error");
-        return;
-      }
+
+    } else { // Snake 1
+      if (!this.snake) { logDebugEvent("Snake 1 instance missing", {}, "error"); return; }
       this.lives--;
+      livesRemaining = this.lives;
       this.onLivesChange(this.lives, this.isMultiplayer ? this.lives2 : undefined);
-      logDebugEvent("Snake 1 lost a life", { remainingLives: this.lives });
+      logDebugEvent("Snake 1 lost a life", { remainingLives: livesRemaining });
 
-      if (this.lives <= 0) {
-        this.endGame();
-        return;
+      if (livesRemaining <= 0) {
+        logDebugEvent("Snake 1 is out of lives.");
+        if (!this.isMultiplayer || (this.isMultiplayer && this.lives2 <= 0)) {
+           logDebugEvent("All players out/single player over. Ending game.");
+           // See comment above regarding potential endGame() delay
+           this.endGame();
+        } else {
+           logDebugEvent("Snake 2 still has lives. Game continues. Snake 1 will not respawn.");
+        }
+         // Return AFTER potentially calling endGame
+        return; // Stop: No respawn timer needed
       }
-
+      // If lives > 0, proceed to set up respawn timer...
       this.respawnCountdown = RESPAWN_TIME;
-
       if (this.respawnTimer) clearInterval(this.respawnTimer);
-
       this.respawnTimer = window.setInterval(() => {
         this.respawnCountdown--;
-        logDebugEvent("Respawn countdown tick (snake 1)", { countdown: this.respawnCountdown });
-
         if (this.respawnCountdown <= 0) {
           clearInterval(this.respawnTimer);
           this.respawnTimer = 0;
-          this.respawnSnake(false);
+          if (this.lives > 0) this.respawnSnake(false); // Check lives again
         }
       }, 1000);
     }
@@ -406,95 +435,131 @@ export class GameEngine {
     let snake1Moved = false;
     let snake2Moved = false;
 
-    if (this.snake && this.respawnCountdown === 0) {
+    // --- Snake 1 Logic ---
+    // ADDED: Check lives > 0 before processing snake 1
+    if (this.snake && this.respawnCountdown === 0 && this.lives > 0) {
       const newHead = this.snake.move();
-      snake1Moved = true;
+      snake1Moved = true; // Mark as moved only if alive and active
 
+      // Check wall collision
       if (this.snake.collidesWithWall()) {
         logDebugEvent("Snake 1 collided with wall");
         this.handleSnakeDeath(false);
-        return;
+        // If snake 1 is now out of lives OR respawning, end its turn for this step
+        if (this.lives <= 0 || this.respawnCountdown > 0) {
+           // Optionally add return here if no other logic should run this step.
+           // return; 
+           snake1Moved = false; // Ensure it's not considered moved for subsequent checks
+        }
       }
 
-      if (this.snake.collidesWithSelf()) {
+      // Check self collision ONLY IF it didn't die from wall collision this step
+      if (snake1Moved && this.snake.collidesWithSelf()) {
         logDebugEvent("Snake 1 collided with self");
         this.handleSnakeDeath(false);
-        return;
-      }
-
-      const eatenFruitIndex = this.fruitManager.checkFruitEaten(newHead);
-      if (eatenFruitIndex >= 0) {
-        this.fruitManager.removeFruit(eatenFruitIndex);
-        logDebugEvent("Snake 1 ate fruit", { fruitIndex: eatenFruitIndex });
-
-        this.score += 10;
-        this.onScoreChange(this.score, this.isMultiplayer ? this.score2 : undefined);
-
-        if (this.speed > MAX_SPEED) {
-          this.speed = Math.max(MAX_SPEED, this.speed - SPEED_INCREMENT);
-          logDebugEvent("Game speed increased", { newSpeed: this.speed });
+        // If snake 1 is now out of lives OR respawning, end its turn for this step
+        if (this.lives <= 0 || this.respawnCountdown > 0) {
+            // return; 
+            snake1Moved = false; // Ensure it's not considered moved for subsequent checks
         }
-
-        const allSegments = [...this.snake.segments, ...(this.snake2 && this.respawnCountdown2 === 0 ? this.snake2.segments : [])];
-        this.fruitManager.addFruit(allSegments);
-
-        if (this.renderer) this.renderer.notifySnakeGrowing(false);
-      } else {
-        this.snake.removeTail();
       }
-    }
 
-    if (this.isMultiplayer && this.snake2 && this.respawnCountdown2 === 0) {
+      // Check fruit eating ONLY IF snake is still alive and considered moved this step
+      if (snake1Moved) {
+          const eatenFruitIndex = this.fruitManager.checkFruitEaten(newHead);
+          if (eatenFruitIndex >= 0) {
+            this.fruitManager.removeFruit(eatenFruitIndex);
+            logDebugEvent("Snake 1 ate fruit", { fruitIndex: eatenFruitIndex });
+            this.score += 10;
+            this.onScoreChange(this.score, this.isMultiplayer ? this.score2 : undefined);
+            if (this.speed > MAX_SPEED) {
+              this.speed = Math.max(MAX_SPEED, this.speed - SPEED_INCREMENT);
+            }
+            const allSegments = [...this.snake.segments, ...(this.snake2 && this.respawnCountdown2 === 0 && this.lives2 > 0 ? this.snake2.segments : [])];
+            this.fruitManager.addFruit(allSegments);
+            if (this.renderer) this.renderer.notifySnakeGrowing(false);
+          } else {
+            this.snake.removeTail();
+          }
+      }
+    } // End Snake 1 Logic Block (if lives > 0)
+
+    // --- Snake 2 Logic ---
+    // ADDED: Check lives2 > 0 before processing snake 2
+    if (this.isMultiplayer && this.snake2 && this.respawnCountdown2 === 0 && this.lives2 > 0) {
       const newHead2 = this.snake2.move();
-      snake2Moved = true;
+      snake2Moved = true; // Mark as moved only if alive and active
 
+      // Check wall collision
       if (this.snake2.collidesWithWall()) {
         logDebugEvent("Snake 2 collided with wall");
         this.handleSnakeDeath(true);
-        return;
+        if (this.lives2 <= 0 || this.respawnCountdown2 > 0) {
+             // return; 
+             snake2Moved = false;
+        }
       }
 
-      if (this.snake2.collidesWithSelf()) {
+      // Check self collision ONLY IF it didn't die from wall collision this step
+      if (snake2Moved && this.snake2.collidesWithSelf()) {
         logDebugEvent("Snake 2 collided with self");
         this.handleSnakeDeath(true);
-        return;
-      }
-
-      const eatenFruitIndex2 = this.fruitManager.checkFruitEaten(newHead2);
-      if (eatenFruitIndex2 >= 0) {
-        this.fruitManager.removeFruit(eatenFruitIndex2);
-        logDebugEvent("Snake 2 ate fruit", { fruitIndex: eatenFruitIndex2 });
-
-        this.score2 += 10;
-        this.onScoreChange(this.score, this.score2);
-
-        if (this.speed > MAX_SPEED) {
-          this.speed = Math.max(MAX_SPEED, this.speed - SPEED_INCREMENT);
-          logDebugEvent("Game speed increased", { newSpeed: this.speed });
+        if (this.lives2 <= 0 || this.respawnCountdown2 > 0) {
+             // return; 
+             snake2Moved = false;
         }
-
-        const allSegments = [...(this.snake && this.respawnCountdown === 0 ? this.snake.segments : []), ...this.snake2.segments];
-        this.fruitManager.addFruit(allSegments);
-
-        if (this.renderer) this.renderer.notifySnakeGrowing(true);
-      } else {
-        this.snake2.removeTail();
       }
+
+      // Check fruit eating ONLY IF snake is still alive and considered moved this step
+      if (snake2Moved) {
+          const eatenFruitIndex2 = this.fruitManager.checkFruitEaten(newHead2);
+          if (eatenFruitIndex2 >= 0) {
+             this.fruitManager.removeFruit(eatenFruitIndex2);
+             logDebugEvent("Snake 2 ate fruit", { fruitIndex: eatenFruitIndex2 });
+             this.score2 += 10;
+             this.onScoreChange(this.score, this.score2);
+             if (this.speed > MAX_SPEED) {
+               this.speed = Math.max(MAX_SPEED, this.speed - SPEED_INCREMENT);
+             }
+             const allSegments = [...(this.snake && this.respawnCountdown === 0 && this.lives > 0 ? this.snake.segments : []), ...this.snake2.segments];
+             this.fruitManager.addFruit(allSegments);
+             if (this.renderer) this.renderer.notifySnakeGrowing(true);
+          } else {
+            this.snake2.removeTail();
+          }
+      }
+    } // End Snake 2 Logic Block (if lives2 > 0)
+
+
+    // --- Snake vs Snake Collision ---
+    // ADDED: Check both lives > 0 and moved status before checking collision
+    if (this.isMultiplayer &&
+        this.snake && this.lives > 0 && this.respawnCountdown === 0 && snake1Moved &&
+        this.snake2 && this.lives2 > 0 && this.respawnCountdown2 === 0 && snake2Moved)
+    {
+        // Check Snake 1 hitting Snake 2's body/head
+        if (this.snake.collidesWithSnake(this.snake2)) {
+            logDebugEvent("Snake 1 collided with Snake 2");
+            this.handleSnakeDeath(false); // Handle death for snake 1
+            // No return needed here, allow checking if snake 2 also collided in the same step (head-on)
+        }
+        // Check Snake 2 hitting Snake 1's body/head
+        // Important: Check if snake 1 is *still* alive before checking if snake 2 hit it
+        if (this.snake && this.lives > 0 && this.respawnCountdown === 0 &&
+            this.snake2.collidesWithSnake(this.snake)) {
+            logDebugEvent("Snake 2 collided with Snake 1");
+            // Make sure snake 1 didn't just die from the previous check
+            // If snake 1 died above, this collision might be irrelevant or need different handling
+            // Let's assume for now that if Snake 1 caused the collision, Snake 2 doesn't die simultaneously
+            // Only handle death for Snake 2 if Snake 1 didn't die from collision in the same step
+            if (! (this.lives <= 0 || this.respawnCountdown > 0) ) { 
+                this.handleSnakeDeath(true); // Handle death for snake 2
+            }
+        }
     }
 
-    if (this.isMultiplayer && this.snake && this.snake2 && snake1Moved && snake2Moved && this.respawnCountdown === 0 && this.respawnCountdown2 === 0) {
-      if (this.snake.collidesWithSnake(this.snake2)) {
-        logDebugEvent("Snake 1 collided with Snake 2");
-        this.handleSnakeDeath(false);
-        return;
-      }
-      if (this.snake2.collidesWithSnake(this.snake)) {
-        logDebugEvent("Snake 2 collided with Snake 1");
-        this.handleSnakeDeath(true);
-        return;
-      }
-    }
 
+    // --- Timing logic ---
     const gameStepTime = performance.now() - startTime;
     recordGameStepTime(gameStepTime);
     if (gameStepTime > 16) {
@@ -510,11 +575,45 @@ export class GameEngine {
   }
 
   endGame() {
-    if (this.animationFrameId === null && !this.isPaused) return;
+    // Prevent multiple calls if already stopped or paused
+    if (this.animationFrameId === null && !this.isPaused) {
+        logDebugEvent("endGame called but game loop already stopped.");
+        return;
+    }
 
-    logDebugEvent("Game over");
+    // Check if the conditions are actually met (for debugging)
+    const isGameOverConditionMet = !this.isMultiplayer ? this.lives <= 0 : (this.lives <= 0 && this.lives2 <= 0);
+    logDebugEvent("End Game function called.", {
+        lives: this.lives,
+        lives2: this.lives2,
+        isMultiplayer: this.isMultiplayer,
+        isGameOverConditionMet: isGameOverConditionMet // Log if conditions match expectation
+    });
+
+    // If this alert shows, the function is being called.
+    alert("Game Over! You have lost all your lives.");
+
+    // --- Simplified Logic ---
+    // Trust that startRespawnCountdown called this correctly.
+    // Directly stop the loop and trigger the game over callback.
+    logDebugEvent("Game over actions triggered: Stopping loop and calling onGameOver.");
     this.stopGameLoop();
     this.onGameOver();
+
+    // --- REMOVED the complex inner if condition ---
+    /*
+    if (
+      !this.isMultiplayer ||
+      (this.lives2 <= 0 && this.lives <= 0) ||
+      (this.allowCoiling && this.noBoundaries) // This condition might belong elsewhere
+    ) {
+      logDebugEvent("Game over actions triggered."); // Log message concept kept
+      this.stopGameLoop();
+      this.onGameOver();
+    } else {
+       logDebugEvent("endGame called, but inner condition failed to stop game.");
+    }
+    */
   }
 
   applySettings(settings: {

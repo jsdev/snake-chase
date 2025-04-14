@@ -113,6 +113,7 @@ export class SnakeRenderer {
     baseColor = "green",
     headColor = "#00ff00",
   ) {
+    alert("Drawing dying snake");
     if (!ctx || segments.length === 0) return
 
     const head = segments[0]
