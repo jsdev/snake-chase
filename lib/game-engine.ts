@@ -1,5 +1,5 @@
 import type { GameState, Position } from "./types";
-import { Snake } from "./snake";
+import { Snake, } from "./snake";
 import { FruitManager } from "./fruit";
 import { INITIAL_SPEED, MAX_SPEED, SPEED_INCREMENT, DEFAULT_LIVES, RESPAWN_TIME } from "./constants";
 import type { GameRenderer } from "./rendering/game-renderer";
@@ -23,6 +23,7 @@ export class GameEngine {
   respawnCountdown2: number;
   isMultiplayer: boolean;
   noBoundaries: boolean;
+  remains: { x: number; y: number; type: "remains" }[];
   allowCoiling: boolean;
   isDarkTheme: boolean;
   gridSize: number;
@@ -65,6 +66,7 @@ export class GameEngine {
     this.isDarkTheme = isDarkTheme;
     this.gridSize = gridSize;
     this.isPaused = false;
+    this.remains = []
     this.onScoreChange = onScoreChange;
     this.onLivesChange = onLivesChange;
     this.onGameOver = onGameOver;
@@ -185,6 +187,7 @@ export class GameEngine {
     this.respawnTimer2 = 0;
     this.respawnCountdown = 0;
     this.respawnCountdown2 = 0;
+    this.remains = []
     this.isPaused = false;
     this.accumulator = 0;
     this.lastFrameTime = 0;
@@ -467,6 +470,24 @@ export class GameEngine {
       // Check fruit eating ONLY IF snake is still alive and considered moved this step
       if (snake1Moved) {
           const eatenFruitIndex = this.fruitManager.checkFruitEaten(newHead);
+          // Check if snake1's head collided with any remains
+          const eatenRemainsIndex = this.remains.findIndex((remain) => {
+            return remain.x === newHead.x && remain.y === newHead.y;
+          });
+
+          if (eatenRemainsIndex >= 0) {
+            this.remains.splice(eatenRemainsIndex, 1);
+            logDebugEvent("Snake 1 ate remains", { remainsIndex: eatenRemainsIndex });
+            this.score += 5; // Bonus score for eating remains
+            this.onScoreChange(this.score, this.isMultiplayer ? this.score2 : undefined);
+
+            if (this.snake.segments.length <= 3) {
+              if (this.snake.segments.length < 5 ) this.snake.segments.push(this.snake.segments[this.snake.segments.length - 1])
+            } else {
+              this.snake.segments.push(this.snake.segments[this.snake.segments.length - 1]);
+            }
+          }
+
           if (eatenFruitIndex >= 0) {
             this.fruitManager.removeFruit(eatenFruitIndex);
             logDebugEvent("Snake 1 ate fruit", { fruitIndex: eatenFruitIndex });
@@ -480,7 +501,14 @@ export class GameEngine {
             if (this.renderer) this.renderer.notifySnakeGrowing(false);
           } else {
             this.snake.removeTail();
+          } 
+          // Check if all remains are eaten
+          if (this.remains.length === 0) {
+             logDebugEvent("Snake 1 ate all remains", { remainsCount: this.remains.length });
+            this.score += 20; // Bonus score for eating all remains
+            this.onScoreChange(this.score, this.isMultiplayer ? this.score2 : undefined);
           }
+          
       }
     } // End Snake 1 Logic Block (if lives > 0)
 
@@ -513,6 +541,24 @@ export class GameEngine {
       // Check fruit eating ONLY IF snake is still alive and considered moved this step
       if (snake2Moved) {
           const eatenFruitIndex2 = this.fruitManager.checkFruitEaten(newHead2);
+          // Check if snake2's head collided with any remains
+           const eatenRemainsIndex2 = this.remains.findIndex((remain) => {
+            return remain.x === newHead2.x && remain.y === newHead2.y;
+          });
+
+          if (eatenRemainsIndex2 >= 0) {
+            this.remains.splice(eatenRemainsIndex2, 1);
+            logDebugEvent("Snake 2 ate remains", { remainsIndex: eatenRemainsIndex2 });
+            this.score2 += 5; // Bonus score for eating remains
+            this.onScoreChange(this.score, this.score2);
+
+             if (this.snake2.segments.length <= 3) {
+              if (this.snake2.segments.length < 5 ) this.snake2.segments.push(this.snake2.segments[this.snake2.segments.length - 1])
+            } else {
+              this.snake2.segments.push(this.snake2.segments[this.snake2.segments.length - 1]);
+            }
+          }
+
           if (eatenFruitIndex2 >= 0) {
              this.fruitManager.removeFruit(eatenFruitIndex2);
              logDebugEvent("Snake 2 ate fruit", { fruitIndex: eatenFruitIndex2 });
@@ -526,6 +572,13 @@ export class GameEngine {
              if (this.renderer) this.renderer.notifySnakeGrowing(true);
           } else {
             this.snake2.removeTail();
+          }
+
+          // Check if all remains are eaten
+          if (this.remains.length === 0) {
+             logDebugEvent("Snake 2 ate all remains", { remainsCount: this.remains.length });
+            this.score2 += 20; // Bonus score for eating all remains
+            this.onScoreChange(this.score, this.score2);
           }
       }
     } // End Snake 2 Logic Block (if lives2 > 0)
@@ -568,9 +621,19 @@ export class GameEngine {
     this.lastGameStepTime = gameStepTime;
   }
 
-  handleSnakeDeath(isSnake2: boolean) {
-    const snakeId = isSnake2 ? 2 : 1;
-    logDebugEvent(`Handling death for Snake ${snakeId}`);
+ handleSnakeDeath(isSnake2: boolean) {
+    const snakeId = isSnake2 ? 2 : 1
+    const deadSnake = isSnake2 ? this.snake2 : this.snake
+
+    logDebugEvent(`Handling death for Snake ${snakeId}`, { segments: deadSnake?.segments.length })
+
+    //check deadsnake instance exists
+    if (deadSnake) {
+      // Get the snake remains and add them to the remains array
+      const newRemains = deadSnake.die()
+      this.remains.push(...newRemains)
+    }
+    // Start the respawn countdown
     this.startRespawnCountdown(isSnake2);
   }
 
@@ -667,6 +730,7 @@ export class GameEngine {
       respawning: this.respawnCountdown,
 
       snake2: this.snake2 ? this.snake2.segments : undefined,
+      remains: this.remains,
       direction2: this.snake2 ? this.snake2.direction : undefined,
       nextDirection2: this.snake2 ? this.snake2.nextDirection : undefined,
       snake2Color: this.snake2 ? this.snake2.color : undefined,

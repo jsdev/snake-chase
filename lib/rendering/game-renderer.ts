@@ -152,6 +152,9 @@ export class GameRenderer extends RendererBase {
     // Draw fruits
     this.fruitRenderer.drawFruits(this.offscreenCtx, state.fruits);
 
+    // Draw remains
+    this.fruitRenderer.drawRemains(this.offscreenCtx, state.remains);
+
     // --- Determine Drawing Flags based on Animation ---
     let drawNormalSnake1 = true; // Flag to control drawing of non-animating snake 1
     let drawNormalSnake2 = true; // Flag to control drawing of non-animating snake 2

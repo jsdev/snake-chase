@@ -3,6 +3,7 @@ import type { Fruit } from "../types"
 export class FruitRenderer {
   cellSize: number
   lastFruitPositions: Map<number, { x: number; y: number; type: string }> = new Map()
+  remainsSize = 0.6 //relative to cellSize
 
   constructor(cellSize: number) {
     this.cellSize = cellSize
@@ -46,6 +47,19 @@ export class FruitRenderer {
         y: fruit.position.y,
         type: fruit.type,
       })
+    }
+  }
+
+  drawRemains(ctx: CanvasRenderingContext2D, remains: { x: number; y: number; type: 'remains' }[]) {
+    ctx.fillStyle = '#555'; // Dark gray color for remains
+
+    const squareSize = this.cellSize * this.remainsSize;
+    const offset = (this.cellSize - squareSize) / 2;
+
+    for (const remain of remains) {
+      const x = remain.x * this.cellSize + offset;
+      const y = remain.y * this.cellSize + offset;
+      ctx.fillRect(x, y, squareSize, squareSize);
     }
   }
 }

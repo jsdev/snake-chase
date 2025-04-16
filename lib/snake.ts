@@ -131,6 +131,15 @@ export class Snake {
     return head.x < 0 || head.x >= this.gridSize || head.y < 0 || head.y >= this.gridSize
   }
 
+  die(): { x: number; y: number; type: "remains" }[] {
+    // When the snake dies, return its segments as remains
+    return this.segments.map((segment) => ({
+      x: segment.x,
+      y: segment.y,
+      type: "remains",
+    }))
+  }
+
   // Check if a position collides with any part of the snake
   collidesWithPosition(position: Position): boolean {
     return this.segments.some((segment) => isSamePosition(segment, position))
