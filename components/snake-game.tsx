@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { GameEngine } from "@/lib/game-engine"
 import { GameRenderer } from "@/lib/renderer"
@@ -8,12 +7,16 @@ import { InputHandler } from "@/lib/input-handler"
 import { DEFAULT_LIVES, GRID_SIZE } from "@/lib/constants"
 import { GameSettings } from "./game-settings"
 import { MobileControls } from "./mobile-controls"
-import { Pause, Play } from "lucide-react"
+import ScoreLifeDisplay from "./ScoreLifeDisplay"
+import { Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { Direction, GameSettings as GameSettingsType } from "@/lib/types"
 import type { Snake } from "@/lib/snake"
 
 export function SnakeGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+
   const gameEngineRef = useRef<GameEngine | null>(null)
   const rendererRef = useRef<GameRenderer | null>(null)
   const inputHandlerRef = useRef<InputHandler | null>(null)
@@ -288,14 +291,7 @@ export function SnakeGame() {
         className="mb-4 flex items-center justify-between rounded-lg p-4 w-full"
         style={{ backgroundColor: "var(--grid-bg)", color: "var(--text)", borderColor: "var(--border)" }}
       >
-        <div className="flex items-center gap-4">
-          <div>
-            <span style={{ color: "var(--accent)" }}>Score:</span> {score}
-          </div>
-          {settings.isMultiplayer && (
-            <div>
-              <span style={{ color: "#8800ff" }}>Player 2:</span> {score2}
-            </div>
+        <ScoreLifeDisplay score={score} score2={score2} lives={lives} lives2={lives2} isMultiplayer={settings.isMultiplayer} />
           )}
         </div>
         <div className="flex items-center gap-2">

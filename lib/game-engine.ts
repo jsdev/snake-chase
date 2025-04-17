@@ -474,7 +474,7 @@ export class GameEngine {
           const eatenRemainsIndex = this.remains.findIndex((remain) => {
             return remain.x === newHead.x && remain.y === newHead.y;
           });
-
+          
           if (eatenRemainsIndex >= 0) {
             this.remains.splice(eatenRemainsIndex, 1);
             logDebugEvent("Snake 1 ate remains", { remainsIndex: eatenRemainsIndex });

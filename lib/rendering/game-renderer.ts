@@ -148,6 +148,19 @@ export class GameRenderer extends RendererBase {
 
     // Draw grid lines
     this.gridRenderer.drawGrid(this.offscreenCtx, theme.gridLines);
+    
+     // Draw remains
+    this.fruitRenderer.drawRemains(this.offscreenCtx, state.remains);
+
+    // Determine which snake is active and draw it last (on top)
+    let activeSnakeSegments: GameState["snake"] | null = null;
+    let activeSnakeDirection = null;
+    let activeSnakeColor = null;
+    let activeSnakeHeadColor = null;
+    let activeSnakeGrowing = false;
+    let inactiveSnakeSegments = null
+    let inactiveSnakeDirection = null
+    let inactiveSnakeColor = null
 
     // Draw fruits
     this.fruitRenderer.drawFruits(this.offscreenCtx, state.fruits);
@@ -160,7 +173,6 @@ export class GameRenderer extends RendererBase {
     let drawNormalSnake2 = true; // Flag to control drawing of non-animating snake 2
 
     // --- Draw Dying Snake Animation (Highest Priority) ---
-    if (this.dyingSnake) {
       // Use the state colors from the main state object for consistency
       const dyingColor = this.dyingSnake.isSnake2 ? (state.snake2Color || "purple") : (state.snakeColor || "green");
       const dyingHeadColor = this.dyingSnake.isSnake2 ? (state.snake2HeadColor || "#8800ff") : (state.snakeHeadColor || "#00ff00");
@@ -178,11 +190,29 @@ export class GameRenderer extends RendererBase {
       } else {
         drawNormalSnake1 = false;
       }
-    }
+
+      if (this.dyingSnake) {
+        this.snakeRenderer.drawDyingSnake(
+          this.offscreenCtx,
+          this.dyingSnake.segments,
+          this.dyingSnake.progress,
+          dyingColor,
+          dyingHeadColor
+        );
+      }
+
 
     // --- Draw Snake 1 (Alive or Respawning Text) ---
     // Only draw if not currently animating death
     if (drawNormalSnake1) {
+      if (state.isMultiplayer && state.lives2 > 0 && state.respawning2 === 0) {
+        activeSnakeSegments = state.snake
+        activeSnakeDirection = state.direction
+        activeSnakeColor = state.snakeColor || "green"
+        activeSnakeHeadColor = state.snakeHeadColor || "#00ff00"
+        activeSnakeGrowing = this.growingSnake1
+      }
+
       // Check if snake 1 is alive and not respawning
       if (state.lives > 0 && state.respawning === 0) {
         this.snakeRenderer.drawSnake(
@@ -193,6 +223,7 @@ export class GameRenderer extends RendererBase {
           state.snakeHeadColor || "#00ff00",
           this.growingSnake1
         );
+
       // Check if snake 1 is currently respawning (draw text)
       } else if (state.respawning > 0) {
         this.uiRenderer.drawRespawnCountdown(
@@ -207,14 +238,23 @@ export class GameRenderer extends RendererBase {
     }
 
     // --- Draw Snake 2 (Alive or Respawning Text) ---
-    // Only draw if multiplayer mode is active AND snake 2 is not animating death
-    if (state.isMultiplayer && drawNormalSnake2) {
+    // Only draw if multiplayer mode is active AND not animating death
+     if (state.isMultiplayer && drawNormalSnake2) {
+       if (state.lives > 0 && state.respawning === 0) {
+        activeSnakeSegments = state.snake2
+        activeSnakeDirection = state.direction2
+        activeSnakeColor = state.snake2Color || "purple"
+        activeSnakeHeadColor = state.snake2HeadColor || "#8800ff"
+        activeSnakeGrowing = this.growingSnake2
+       }
+       
       // Check if snake 2 actually exists in the state
       if (state.snake2 && state.direction2) {
         // Check if snake 2 is alive and not respawning
         if (state.lives2 > 0 && state.respawning2 === 0) {
-          this.snakeRenderer.drawSnake(
+           this.snakeRenderer.drawSnake(
             this.offscreenCtx,
+            state.snake,
             state.snake2,
             state.direction2,
             state.snake2Color || "purple",
