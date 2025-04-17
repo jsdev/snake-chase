@@ -286,14 +286,14 @@ export function SnakeGame() {
   }
 
   return (
-    <div className="flex flex-col items-center" style={{ color: "var(--text)" }}>
+    <>
+        <div className="flex flex-col items-center" style={{ color: "var(--text)" }}>
       <div
         className="mb-4 flex items-center justify-between rounded-lg p-4 w-full"
         style={{ backgroundColor: "var(--grid-bg)", color: "var(--text)", borderColor: "var(--border)" }}
       >
         <ScoreLifeDisplay score={score} score2={score2} lives={lives} lives2={lives2} isMultiplayer={settings.isMultiplayer} />
-          )}
-        </div>
+      </div>
         <div className="flex items-center gap-2">
           {gameStarted && !gameOver && (
             <Button
@@ -462,6 +462,7 @@ export function SnakeGame() {
           </div>
         </div>
       )}
-    </div>
+    </>
+
   )
 }
