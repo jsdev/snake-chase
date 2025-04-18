@@ -26,14 +26,14 @@ const ScoreLifeDisplay: React.FC<ScoreLifeDisplayProps> = ({ player1, player2 })
     <div className="text-center mx-5">
       <div className="flex gap-2">
         {Array.from({ length: 3 }).map((_, index) => {
-          const isDead = index >= player.lives;
+          const isDead = index >= player?.lives;
           return (
             <div
               key={index}
               className={snakeHead({ isDead })}
             >
               <svg width="40" height="30" viewBox="0 0 100 75">
-                <rect x="20" y="0" width="60" height="50" fill={player.color} rx="10" />
+                <rect x="20" y="0" width="60" height="50" fill={player?.color || 'transparent'} rx="10" />
                 <rect x="38" y="15" width="5" height="5" fill="black" />
                 <rect x="57" y="15" width="5" height="5" fill="black" />
                 {isDead && (
@@ -49,7 +49,7 @@ const ScoreLifeDisplay: React.FC<ScoreLifeDisplayProps> = ({ player1, player2 })
           )
         })}
       </div>
-      <p className="text-blue-500 font-bold text-xl mt-1">{player.score}</p>
+      <p className="text-blue-500 font-bold text-xl mt-1">{player?.score || ''}</p>
     </div>
   );
 

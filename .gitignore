@@ -11,10 +11,10 @@ yarn-error.log*
 .pnp.js
 
 # Google Studio
-/.idx/
+.idx/
 
 # Next.js build output
-/.next/
+.next/
 /out/
 
 # Vercel/Netlify build output
