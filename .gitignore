@@ -14,6 +14,7 @@ yarn-error.log*
 .idx/
 
 # Next.js build output
+*.next/
 .next/
 /out/
 
@@ -36,6 +37,3 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
-
-# Production files
-*.log

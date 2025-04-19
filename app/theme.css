@@ -124,4 +124,9 @@
   [role="switch"] span {
     background-color: white !important;
   }
+
+  button {
+    color: var(--text);
+    min-width: 40px
+  }
   

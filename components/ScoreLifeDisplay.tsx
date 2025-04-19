@@ -9,6 +9,7 @@ interface PlayerData {
 
 interface ScoreLifeDisplayProps {
   player1: PlayerData;
+  startingLives?: number;
   player2?: PlayerData; // Optional for single-player
 }
 
@@ -21,21 +22,21 @@ const snakeHead = cva("relative flex flex-col justify-center items-center", {
   }
 })
 
-const ScoreLifeDisplay: React.FC<ScoreLifeDisplayProps> = ({ player1, player2 }) => {
+const ScoreLifeDisplay: React.FC<ScoreLifeDisplayProps> = ({ player1, player2, startingLives = 3 }) => {
   const renderPlayer = (player: PlayerData) => (
     <div className="text-center mx-5">
       <div className="flex gap-2">
-        {Array.from({ length: 3 }).map((_, index) => {
+        {Array.from({ length: startingLives }).map((_, index) => {
           const isDead = index >= player?.lives;
           return (
             <div
               key={index}
               className={snakeHead({ isDead })}
             >
-              <svg width="40" height="30" viewBox="0 0 100 75">
-                <rect x="20" y="0" width="60" height="50" fill={player?.color || 'transparent'} rx="10" />
-                <rect x="38" y="15" width="5" height="5" fill="black" />
-                <rect x="57" y="15" width="5" height="5" fill="black" />
+              <svg width="40" height="25" viewBox="0 0 40 40">
+                <rect x="0" y="0" width="40" height="40" fill={player?.color || 'transparent'}  rx="0"></rect>
+                <rect x="10" y="15" width="5" height="5" fill="black"></rect>
+                <rect x="25" y="15" width="5" height="5" fill="black"></rect>
                 {isDead && (
                   <>
                     <line x1="35" y1="10" x2="45" y2="25" stroke="black" strokeWidth="3" />

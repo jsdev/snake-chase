@@ -1,5 +1,5 @@
 "use client"
-import { SnakeGame } from "@/components/snake-game"
+import { SnakeGame } from "@/components/SnakeGame"
 import "./theme.css"
 
 export default function Home() {
